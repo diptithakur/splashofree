@@ -1,0 +1,232 @@
+    <html>
+
+<head>
+    <style>
+        body {
+            width: 100%;
+            height: 100%;
+            background-color: #7BAFD4;
+            color: #fff;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #button {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            padding: 12px;
+            border-radius: 50%;
+            margin-bottom: 0px;
+            background-color: #FFF;
+            opacity: .9;
+            z-index: 999;
+            box-shadow: 0 0 4px rgba(0, 0, 0, .15);
+        }
+
+        a {
+            text-decoration: none;
+        }
+
+        #button img {
+            display: block;
+            width: var(--icon-size);
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/84/three.min.js"></script>
+    <script src="http://threejs.org/examples/js/controls/OrbitControls.js"></script>
+    <script src="js/GLTF2Loader.js"></script>
+    
+</head>
+
+<body>
+    <div id="container"></div>
+    <a id="button" href="dry.html">
+        <img src="https://threejs.org/files/ic_code_black_24dp.svg">
+    </a>
+</body>
+<script>
+
+    let container, stats, camera, scene, controls, renderer, mesh, particleSystem, particleCount, particles, sky, sunSphere;
+
+    init();
+    animate();
+
+    function init() {
+
+        camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 3000);
+        camera.position.z = 50;
+
+        scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x111111, 0.002);
+
+        controls = new THREE.OrbitControls(camera);
+        controls.addEventListener('change', render);
+
+        let loader = new THREE.TextureLoader();
+
+        let floorTexture = loader.load('img/grass.jpg');
+        floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+        floorTexture.repeat.set(5, 5);
+        let floorMaterial = new THREE.MeshBasicMaterial({ map: floorTexture, side: THREE.DoubleSide });
+        let floorGeometry = new THREE.PlaneGeometry(100, 100, 5, 5);
+        let floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.position.y = -6;
+        floor.rotation.x = Math.PI / 2;
+        scene.add(floor);
+
+        particleCount = 150000;
+        let pMaterial = new THREE.PointCloudMaterial({
+            color: 0xFFFFFF,
+            size: 0.8,
+            map: loader.load('img/drop2.png'),
+            blending: THREE.AdditiveBlending,
+            depthTest: false,
+            transparent: true
+        });
+
+        particles = new THREE.Geometry;
+        for (var i = 0; i < particleCount; i++) {
+            let pX = Math.random() * 500 - 250,
+                pY = Math.random() * 500 - 250,
+                pZ = Math.random() * 500 - 250,
+                particle = new THREE.Vector3(pX, pY, pZ);
+            particle.velocity = {};
+            particle.velocity.y = 0;
+            particles.vertices.push(particle);
+        }
+        particleSystem = new THREE.PointCloud(particles, pMaterial);
+        scene.add(particleSystem);
+
+        loader1 = new THREE.GLTF2Loader();
+        loader1.load('scene.gltf', function (gltf) {
+            gltf.scene.traverse(function (child) {
+                child.position.x = 0;
+                child.position.y = -3.5;
+                child.position.z = 2;
+                child.scale.x = 1;
+                //child.scale.y = 2;
+                child.scale.z = 1;
+                scene.add(gltf.scene);
+            });
+        });
+
+        loader2 = new THREE.GLTF2Loader();
+        loader2.load('pipe_straight/scene.gltf', function (gltf) {
+            gltf.scene.scale.set(0.75,1,0.75);
+        
+            gltf.scene.traverse(function (child) {
+                child.position.x = 1.77;
+                child.position.y = 1;
+                child.position.z = 12.6;
+                child.rotation.x = 3.36;
+                
+                //child.rotation.y = 3;
+                //child.rotation.z = 3;
+                scene.add(gltf.scene);
+            });
+        });
+
+        loader3 = new THREE.GLTF2Loader();
+        loader3.load('watertankfinal.gltf', function (gltf) {
+            gltf.scene.scale.set(0.5,1,0.75);
+            gltf.scene.traverse(function (child) {
+                child.position.x = 3;
+                child.position.y = 15.2;
+                child.position.z = 4;
+                scene.add(gltf.watertankfinal);
+            });
+        });
+
+        let ambient = new THREE.AmbientLight(0x444444);
+        scene.add(ambient);
+
+        let directionalLight = new THREE.DirectionalLight(0xffeedd);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setClearColor(scene.fog.color);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        container = document.getElementById('container');
+        container.appendChild(renderer.domElement);
+
+        window.addEventListener('resize', onWindowResize, false);
+
+        /*function CustomSinCurve(scale) {
+
+            THREE.Curve.call(this);
+
+            this.scale = (scale === undefined) ? 1 : scale;
+
+        }
+
+        CustomSinCurve.prototype = Object.create(THREE.Curve.prototype);
+        CustomSinCurve.prototype.constructor = CustomSinCurve;
+
+        CustomSinCurve.prototype.getPoint = function (t) {
+
+            var tx = t * 1 - 1.5;
+            var ty = 0;//Math.sin(2 * Math.PI * t);
+            //var ty.rotation = 90 * Math.PI / 180;
+            var tz = 0;
+
+            return new THREE.Vector3(tx, ty, tz).multiplyScalar(this.scale);
+
+        };
+
+        var path = new CustomSinCurve(10);
+        var geometry = new THREE.TubeBufferGeometry(path, 87, 0.3, 100, false);
+        var material = new THREE.MeshBasicMaterial({ color: 'grey',side: THREE.DoubleSide });
+        var mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(2, 0, 12);
+        scene.add(mesh);*/
+    }
+
+    function simulateRain() {
+        let pCount = particleCount;
+        while (pCount--) {
+            let particle = particles.vertices[pCount];
+            if (particle.y < -200) {
+                particle.y = 200;
+                particle.velocity.y = 10;
+            }
+            particle.velocity.y -= Math.random() * .02;
+            // console.log(particle.velocity.y);    
+            particle.y += particle.velocity.y;
+        }
+        particles.verticesNeedUpdate = true;
+    };
+
+    function stopRain() {
+        myvar = setInterval(simulateRain, 10000);
+    }
+
+    // stopRain();
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        render();
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        //particleSystem.rotation.y += 0.01;
+        particleSystem.rotation.y += 0.0015;
+        simulateRain();
+        controls.update();
+        render();
+    }
+
+    function render() {
+        renderer.render(scene, camera);
+    }
+
+</script>
+
+</html>
